@@ -1,0 +1,27 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Top template
+
+Resources:
+  s3Stack:
+    Type: AWS::CloudFormation::Stack
+    Properties: 
+      TemplateURL: "https://bucket-of-warunek.s3.amazonaws.com/cloudformation/s3.yaml"
+
+  vpcStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: "https://bucket-of-warunek.s3.amazonaws.com/cloudformation/vpc.yaml" 
+      Parameters: 
+        vpc: 
+          Type: String
+          Ref: vpc
+    DependsOn: s3Stack
+
+  securityGroupStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      DependsOn: vpcStack
+      TemplateURL: "https://bucket-of-warunek.s3.amazonaws.com/cloudformation/sg.yaml"
+      Parameters:
+        vpc: !Ref vpcStack
+      

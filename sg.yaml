@@ -1,0 +1,23 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Security groups
+
+Resources:
+  default:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      SecurityGroupIngress: 
+        Description: Port 80 inbound
+        CidrIp: 0.0.0.0/0
+        FromPort: 80
+        IpProtocol: http
+        VpcId: !Ref vpc
+      SecurityGroupIngress: 
+        Description: Port 443 inbound
+        CidrIp: 0.0.0.0/0
+        FromPort: 443
+        IpProtocol: https
+        VpcId: !Ref vpc
+      SecurityGroupEgress: 
+        Description: Default security group
+        IpProtocol: all
+        VpcId: !Ref vpc
