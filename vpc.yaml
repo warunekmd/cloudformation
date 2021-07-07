@@ -7,89 +7,110 @@ Resources:
     Type: AWS::EC2::VPC
     Properties:
       CidrBlock: 172.31.0.0/16
-      Parameters:
-        vpc:
-          Type: AWS::EC2::VPC
 
   igw:    
     Type: AWS::EC2::InternetGateway
+
+  attachIGWtoVPC:
+    Type: AWS::EC2::VPCGatewayAttachment
     Properties: 
-      VpcId: !Ref 'vpc'
-  
+      InternetGatewayId: 
+        Ref: igw
+      VpcId:
+        Ref: vpc
+
   acl:
     Type: AWS::EC2::NetworkAcl
     Properties:
-      VpcId: !Ref 'vpc'
+      VpcId:
+        Ref: vpc
   
   aclIngress:
     Type: AWS::EC2::NetworkAclEntry
     Properties: 
       CidrBlock: 0.0.0.0/0
-      NetworkAclId: !Ref 'acl'
-      Protocol: -1
+      NetworkAclId:
+        Ref: acl
+      Protocol: 6
       RuleAction: allow
       RuleNumber: 100
+      PortRange:
+         From: 22
+         To: 22
   
   aclEgress:
     Type: AWS::EC2::NetworkAclEntry
     Properties: 
       CidrBlock: 0.0.0.0/0
       Egress: true
-      NetworkAclId: !Ref 'acl'
-      Protocol: -1
+      NetworkAclId: 
+        Ref: acl
+      Protocol: '-1'
       RuleAction: deny
-      RuleNumber: "*"
+      RuleNumber: 100
 
   routeTable:
     Type: AWS::EC2::RouteTable
     Properties: 
-      VpcId: !Ref 'vpc'
+      VpcId: 
+        Ref: vpc
   
   routing:
     Type: AWS::EC2::Route
-    DependsOn: [igw, routeTable]
+    #DependsOn: [igw, routeTable]
     Properties:
-       RouteTableId: !Ref routeTable
-       DestinationCidrBlock: 0.0.0.0/0
-       GatewayId: !Ref igw
+      RouteTableId:
+        Ref: routeTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId:
+        Ref: igw
 
   az1a:
     Type: AWS::EC2::Subnet
     Properties:
       CidrBlock: 172.31.0.0/20 
-      AvailabilityZone: "us-east-1a"
-      VpcId: !Ref 'vpc'
+      AvailabilityZone: "us-east-2a"
+      VpcId:
+        Ref: vpc
   
   subnetrouting:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      DependsOn: az1a 
-      RouteTableId: !Ref routeTable
-      SubnetId: !Ref az1a
+      #DependsOn: [az1a, routeTable]
+      RouteTableId:
+        Ref: routeTable
+      SubnetId: 
+        Ref: az1a
 
   az1b:
     Type: AWS::EC2::Subnet
     Properties: 
       CidrBlock: 172.31.16.0/20
-      AvailabilityZone: "us-east-1b"
-      VpcId: !Ref 'vpc'
+      AvailabilityZone: "us-east-2b"
+      VpcId:
+        Ref: vpc
 
   az1c:
     Type: AWS::EC2::Subnet
     Properties:
       CidrBlock: 172.31.32.0/20 
-      AvailabilityZone: "us-east-1c"
-      VpcId: !Ref 'vpc'
+      AvailabilityZone: "us-east-2c"
+      VpcId:
+        Ref: vpc
 
 Outputs:
   vpc:
-    Value: !Ref 'vpc'
+    Value:
+      Ref: vpc
   
   az1a:
-    Value: !Ref 'az1a'
+    Value:
+      Ref: az1a
 
   az1b:
-    Value: !Ref 'az1b'
+    Value:
+      Ref: az1b
 
   az1c:
-    Value: !Ref 'az1c'
+    Value:
+      Ref: az1c

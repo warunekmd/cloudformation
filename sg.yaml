@@ -1,7 +1,18 @@
 AWSTemplateFormatVersion: "2010-09-09"
+
 Description: Security groups
 
 Resources:
+
+  vpcStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: "https://bucket-of-warunek.s3.amazonaws.com/cloudformation/vpc.yaml" 
+      Parameters: 
+        vpc: 
+          Type: String
+          Ref: vpc
+  
   default:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -10,14 +21,14 @@ Resources:
         CidrIp: 0.0.0.0/0
         FromPort: 80
         IpProtocol: http
-        VpcId: !Ref vpc
+        VpcId: !Ref vpcStack
       SecurityGroupIngress: 
         Description: Port 443 inbound
         CidrIp: 0.0.0.0/0
         FromPort: 443
         IpProtocol: https
-        VpcId: !Ref vpc
+        VpcId: !Ref vpcStack
       SecurityGroupEgress: 
         Description: Default security group
         IpProtocol: all
-        VpcId: !Ref vpc
+        VpcId: !Ref vpcStack
