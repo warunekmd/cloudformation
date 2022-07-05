@@ -1,5 +1,9 @@
 AWSTemplateFormatVersion: "2010-09-09"
 
+Parameters:
+  vpc:
+    Type: String
+
 Description: VPC
 
 Resources:
@@ -57,7 +61,6 @@ Resources:
   
   routing:
     Type: AWS::EC2::Route
-    #DependsOn: [igw, routeTable]
     Properties:
       RouteTableId:
         Ref: routeTable
@@ -69,14 +72,13 @@ Resources:
     Type: AWS::EC2::Subnet
     Properties:
       CidrBlock: 172.31.0.0/20 
-      AvailabilityZone: "us-east-2a"
+      AvailabilityZone: "us-east-1a"
       VpcId:
         Ref: vpc
   
   subnetrouting:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      #DependsOn: [az1a, routeTable]
       RouteTableId:
         Ref: routeTable
       SubnetId: 
@@ -86,7 +88,7 @@ Resources:
     Type: AWS::EC2::Subnet
     Properties: 
       CidrBlock: 172.31.16.0/20
-      AvailabilityZone: "us-east-2b"
+      AvailabilityZone: "us-east-1b"
       VpcId:
         Ref: vpc
 
@@ -94,7 +96,7 @@ Resources:
     Type: AWS::EC2::Subnet
     Properties:
       CidrBlock: 172.31.32.0/20 
-      AvailabilityZone: "us-east-2c"
+      AvailabilityZone: "us-east-1c"
       VpcId:
         Ref: vpc
 

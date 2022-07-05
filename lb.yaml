@@ -1,0 +1,20 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: Load Balancer
+
+Resources:
+
+  loadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties: 
+      IpAddressType: ipv4
+      Name: dev-cloudformation-load-balancer
+      SecurityGroups: 
+        - String
+      SubnetMappings: 
+        - #The IDs of the public subnet, you can only have 1 per Availability zone
+      Subnets: 
+        - #The IDs of subnets
+      Tags: 
+        - Tag
+      Type: applications

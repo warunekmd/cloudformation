@@ -14,7 +14,7 @@ Resources:
       Parameters: 
         vpc: 
           Type: String
-          Ref: vpc
+          Ref: vpcStack.vpc.Outputs
     DependsOn: s3Stack
 
   securityGroupStack:
@@ -23,5 +23,5 @@ Resources:
       DependsOn: vpcStack
       TemplateURL: "https://bucket-of-warunek.s3.amazonaws.com/cloudformation/sg.yaml"
       Parameters:
-        vpc: !Ref vpcStack
+        vpc: !Ref vpcStack.vpc.Outputs
       

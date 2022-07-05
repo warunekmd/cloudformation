@@ -1,0 +1,28 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: Target Group
+
+Resources:
+  targetGroup:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties: 
+      #HealthCheckEnabled: Boolean
+      #HealthCheckIntervalSeconds: 200
+      #HealthCheckPath: /
+      HealthCheckPort: "443"
+      HealthCheckProtocol: HTTPS
+      #HealthCheckTimeoutSeconds: Integer
+      #HealthyThresholdCount: 2
+      Name: dev-cloudformation-target-group
+      Port: 443
+      Protocol: HTTPS
+      Tags: 
+        - Tag
+      TargetGroupAttributes: 
+        - TargetGroupAttribute
+      Targets: 
+        - TargetDescription
+      TargetType: instance
+      UnhealthyThresholdCount: Integer
+      VpcId:
+        Ref: vpc
