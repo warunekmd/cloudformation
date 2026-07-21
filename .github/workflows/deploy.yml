@@ -1,0 +1,104 @@
+#Name of pipeline
+name: Deploy CloudFormation Infrastructure
+
+#Activates pipeline when code is pushed to main or dev
+on:
+  push:
+    branches: [main, dev]
+
+#Stages
+jobs:
+  cloudformation_deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      #Copies repo into the runner
+      - name: Checkout Code Repository
+        uses: actions/checkout@v4
+
+      #Determines which environment to deploy based on branch
+      - name: Set Environment
+        id: set-env
+        run: |
+          if [ "${{ github.ref_name }}" = "main" ]; then
+            echo "ENV=prod" >> $GITHUB_OUTPUT
+          else
+            echo "ENV=dev" >> $GITHUB_OUTPUT
+          fi
+
+      #Configures AWS credentials referencing secrets stored in GitHub
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      #Gets the AWS account ID from the configured credentials
+      - name: Get AWS Account ID
+        id: aws-account
+        run: echo "ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)" >> $GITHUB_OUTPUT
+
+      #Sets the S3 bucket name for hosting nested stack templates
+      - name: Set Templates Bucket Name
+        id: bucket
+        run: echo "BUCKET_NAME=${{ steps.set-env.outputs.ENV }}-cfn-templates-${{ steps.aws-account.outputs.ACCOUNT_ID }}" >> $GITHUB_OUTPUT
+
+      #Creates the S3 bucket if it does not already exist
+      - name: Ensure S3 Templates Bucket Exists
+        run: |
+          if ! aws s3api head-bucket --bucket "${{ steps.bucket.outputs.BUCKET_NAME }}" 2>/dev/null; then
+            aws s3api create-bucket \
+              --bucket "${{ steps.bucket.outputs.BUCKET_NAME }}" \
+              --region "${{ secrets.AWS_REGION }}"
+            aws s3api put-bucket-versioning \
+              --bucket "${{ steps.bucket.outputs.BUCKET_NAME }}" \
+              --versioning-configuration Status=Enabled
+            aws s3api put-public-access-block \
+              --bucket "${{ steps.bucket.outputs.BUCKET_NAME }}" \
+              --public-access-block-configuration "BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true"
+          fi
+
+      #Syncs nested stack templates to S3 so parent stack can reference them
+      - name: Upload Nested Stack Templates to S3
+        run: aws s3 sync stacks/ s3://${{ steps.bucket.outputs.BUCKET_NAME }}/stacks/ --delete
+
+      #Deploys the parent stack (creates if new, updates if exists)
+      - name: Deploy ${{ steps.set-env.outputs.ENV }} Infrastructure Stack
+        run: |
+          STACK_NAME="${{ steps.set-env.outputs.ENV }}-cfn-infrastructure"
+          PARAMS_FILE="environments/${{ steps.set-env.outputs.ENV }}.json"
+
+          #Build parameters in ParameterKey=X,ParameterValue=Y format
+          PARAMS=$(jq -r '.Parameters | to_entries | map("ParameterKey=\(.key),ParameterValue=\(.value)") | .[]' "$PARAMS_FILE")
+          PARAMS="$PARAMS ParameterKey=TemplatesBucket,ParameterValue=${{ steps.bucket.outputs.BUCKET_NAME }}"
+
+          echo "Parameters: $PARAMS"
+
+          #Check if stack exists
+          if aws cloudformation describe-stacks --stack-name "$STACK_NAME" 2>/dev/null; then
+            echo "Stack exists — updating..."
+            aws cloudformation update-stack \
+              --stack-name "$STACK_NAME" \
+              --template-body file://top.yaml \
+              --parameters $PARAMS \
+              --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND \
+              || echo "No updates to perform."
+            aws cloudformation wait stack-update-complete --stack-name "$STACK_NAME" || true
+          else
+            echo "Stack does not exist — creating..."
+            aws cloudformation create-stack \
+              --stack-name "$STACK_NAME" \
+              --template-body file://top.yaml \
+              --parameters $PARAMS \
+              --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND
+            aws cloudformation wait stack-create-complete --stack-name "$STACK_NAME"
+          fi
+
+      #Prints stack outputs for visibility
+      - name: Display Stack Outputs
+        run: |
+          aws cloudformation describe-stacks \
+            --stack-name "${{ steps.set-env.outputs.ENV }}-cfn-infrastructure" \
+            --query "Stacks[0].Outputs" \
+            --output table
