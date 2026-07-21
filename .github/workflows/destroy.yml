@@ -1,4 +1,5 @@
 #Name of pipeline
+#Manually destroys CloudFormation infrastructure via workflow_dispatch
 name: Destroy CloudFormation Infrastructure
 
 #Manually triggered from GitHub Actions ui
