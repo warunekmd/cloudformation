@@ -69,9 +69,9 @@ jobs:
           STACK_NAME="${{ steps.set-env.outputs.ENV }}-cfn-infrastructure"
           PARAMS_FILE="environments/${{ steps.set-env.outputs.ENV }}.json"
 
-          #Build parameter overrides as space-separated key=value pairs on one line
-          PARAMS=$(jq -r '.Parameters | to_entries | map("\(.key)=\(.value)") | join(" ")' "$PARAMS_FILE")
-          PARAMS="$PARAMS TemplatesBucket=${{ steps.bucket.outputs.BUCKET_NAME }}"
+          #Build parameters in ParameterKey=X,ParameterValue=Y format
+          PARAMS=$(jq -r '.Parameters | to_entries | map("ParameterKey=\(.key),ParameterValue=\(.value)") | .[]' "$PARAMS_FILE")
+          PARAMS="$PARAMS ParameterKey=TemplatesBucket,ParameterValue=${{ steps.bucket.outputs.BUCKET_NAME }}"
 
           echo "Parameters: $PARAMS"
 
@@ -81,7 +81,7 @@ jobs:
             aws cloudformation update-stack \
               --stack-name "$STACK_NAME" \
               --template-body file://top.yaml \
-              --parameter-overrides $PARAMS \
+              --parameters $PARAMS \
               --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND \
               || echo "No updates to perform."
             aws cloudformation wait stack-update-complete --stack-name "$STACK_NAME" || true
@@ -90,7 +90,7 @@ jobs:
             aws cloudformation create-stack \
               --stack-name "$STACK_NAME" \
               --template-body file://top.yaml \
-              --parameter-overrides $PARAMS \
+              --parameters $PARAMS \
               --capabilities CAPABILITY_NAMED_IAM CAPABILITY_AUTO_EXPAND
             aws cloudformation wait stack-create-complete --stack-name "$STACK_NAME"
           fi
