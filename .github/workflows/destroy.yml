@@ -1,0 +1,93 @@
+#Name of pipeline
+name: Destroy CloudFormation Infrastructure
+
+#Manually triggered from GitHub Actions UI
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to destroy'
+        required: true
+        type: choice
+        options:
+          - dev
+          - prod
+          - all
+      confirm:
+        description: 'Type "destroy" to confirm teardown'
+        required: true
+        type: string
+
+#Stages
+jobs:
+  cloudformation_destroy:
+    runs-on: ubuntu-latest
+    if: github.event.inputs.confirm == 'destroy'
+
+    steps:
+      #Copies repo into the runner
+      - name: Checkout Code Repository
+        uses: actions/checkout@v4
+
+      #Configures AWS credentials referencing secrets stored in GitHub
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      #Gets the AWS account ID for bucket naming
+      - name: Get AWS Account ID
+        id: aws-account
+        run: echo "ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)" >> $GITHUB_OUTPUT
+
+      #Destroys the dev stack
+      - name: Destroy Dev Infrastructure Stack
+        if: github.event.inputs.environment == 'dev' || github.event.inputs.environment == 'all'
+        run: |
+          STACK_NAME="dev-cfn-infrastructure"
+          if aws cloudformation describe-stacks --stack-name "$STACK_NAME" 2>/dev/null; then
+            aws cloudformation delete-stack --stack-name "$STACK_NAME"
+            echo "Waiting for dev stack deletion..."
+            aws cloudformation wait stack-delete-complete --stack-name "$STACK_NAME"
+            echo "Dev stack destroyed."
+          else
+            echo "Dev stack does not exist — skipping."
+          fi
+
+      #Cleans up the dev S3 templates bucket
+      - name: Clean Up Dev Templates Bucket
+        if: github.event.inputs.environment == 'dev' || github.event.inputs.environment == 'all'
+        run: |
+          BUCKET="dev-cfn-templates-${{ steps.aws-account.outputs.ACCOUNT_ID }}"
+          if aws s3api head-bucket --bucket "$BUCKET" 2>/dev/null; then
+            aws s3 rm "s3://$BUCKET" --recursive
+            aws s3api delete-bucket --bucket "$BUCKET"
+            echo "Dev templates bucket deleted."
+          fi
+
+      #Destroys the prod stack
+      - name: Destroy Prod Infrastructure Stack
+        if: github.event.inputs.environment == 'prod' || github.event.inputs.environment == 'all'
+        run: |
+          STACK_NAME="prod-cfn-infrastructure"
+          if aws cloudformation describe-stacks --stack-name "$STACK_NAME" 2>/dev/null; then
+            aws cloudformation delete-stack --stack-name "$STACK_NAME"
+            echo "Waiting for prod stack deletion..."
+            aws cloudformation wait stack-delete-complete --stack-name "$STACK_NAME"
+            echo "Prod stack destroyed."
+          else
+            echo "Prod stack does not exist — skipping."
+          fi
+
+      #Cleans up the prod S3 templates bucket
+      - name: Clean Up Prod Templates Bucket
+        if: github.event.inputs.environment == 'prod' || github.event.inputs.environment == 'all'
+        run: |
+          BUCKET="prod-cfn-templates-${{ steps.aws-account.outputs.ACCOUNT_ID }}"
+          if aws s3api head-bucket --bucket "$BUCKET" 2>/dev/null; then
+            aws s3 rm "s3://$BUCKET" --recursive
+            aws s3api delete-bucket --bucket "$BUCKET"
+            echo "Prod templates bucket deleted."
+          fi
