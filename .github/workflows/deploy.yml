@@ -69,11 +69,11 @@ jobs:
           STACK_NAME="${{ steps.set-env.outputs.ENV }}-cfn-infrastructure"
           PARAMS_FILE="environments/${{ steps.set-env.outputs.ENV }}.json"
 
-          # Build parameter overrides from the JSON file, adding the TemplatesBucket
+          #Build parameter overrides from the JSON file, adding the TemplatesBucket
           PARAMS=$(jq -r '.Parameters | to_entries | map("\(.key)=\(.value)") | .[]' "$PARAMS_FILE")
           PARAMS="$PARAMS TemplatesBucket=${{ steps.bucket.outputs.BUCKET_NAME }}"
 
-          # Check if stack exists
+          #Check if stack exists
           if aws cloudformation describe-stacks --stack-name "$STACK_NAME" 2>/dev/null; then
             echo "Stack exists — updating..."
             aws cloudformation update-stack \
