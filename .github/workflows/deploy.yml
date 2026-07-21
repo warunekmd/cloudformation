@@ -50,7 +50,7 @@ jobs:
           if ! aws s3api head-bucket --bucket "${{ steps.bucket.outputs.BUCKET_NAME }}" 2>/dev/null; then
             aws s3api create-bucket \
               --bucket "${{ steps.bucket.outputs.BUCKET_NAME }}" \
-              --region "${{ secrets.AWS_REGION }}" \
+              --region "${{ secrets.AWS_REGION }}"
             aws s3api put-bucket-versioning \
               --bucket "${{ steps.bucket.outputs.BUCKET_NAME }}" \
               --versioning-configuration Status=Enabled
