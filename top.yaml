@@ -1,0 +1,93 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Top-level orchestrator stack that deploys nested child stacks from S3
+
+Parameters:
+  Environment:
+    Type: String
+    AllowedValues:
+      - dev
+      - prod
+    Description: Target deployment environment
+  TemplatesBucket:
+    Type: String
+    Description: S3 bucket name where nested stack templates are hosted
+  VpcCidr:
+    Type: String
+    Description: CIDR block for the VPC
+  PublicSubnet1Cidr:
+    Type: String
+    Description: CIDR block for public subnet in AZ1
+  PublicSubnet2Cidr:
+    Type: String
+    Description: CIDR block for public subnet in AZ2
+  PrivateSubnet1Cidr:
+    Type: String
+    Description: CIDR block for private subnet in AZ1
+  PrivateSubnet2Cidr:
+    Type: String
+    Description: CIDR block for private subnet in AZ2
+
+Resources:
+  VpcStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub "https://${TemplatesBucket}.s3.amazonaws.com/stacks/vpc.yaml"
+      Parameters:
+        Environment: !Ref Environment
+        VpcCidr: !Ref VpcCidr
+        PublicSubnet1Cidr: !Ref PublicSubnet1Cidr
+        PublicSubnet2Cidr: !Ref PublicSubnet2Cidr
+        PrivateSubnet1Cidr: !Ref PrivateSubnet1Cidr
+        PrivateSubnet2Cidr: !Ref PrivateSubnet2Cidr
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  SecurityGroupStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: VpcStack
+    Properties:
+      TemplateURL: !Sub "https://${TemplatesBucket}.s3.amazonaws.com/stacks/sg.yaml"
+      Parameters:
+        Environment: !Ref Environment
+        VpcId: !GetAtt VpcStack.Outputs.VpcId
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  TargetGroupStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: VpcStack
+    Properties:
+      TemplateURL: !Sub "https://${TemplatesBucket}.s3.amazonaws.com/stacks/tg.yaml"
+      Parameters:
+        Environment: !Ref Environment
+        VpcId: !GetAtt VpcStack.Outputs.VpcId
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+  LoadBalancerStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn:
+      - SecurityGroupStack
+      - TargetGroupStack
+    Properties:
+      TemplateURL: !Sub "https://${TemplatesBucket}.s3.amazonaws.com/stacks/lb.yaml"
+      Parameters:
+        Environment: !Ref Environment
+        ALBSecurityGroupId: !GetAtt SecurityGroupStack.Outputs.ALBSecurityGroupId
+        PublicSubnet1Id: !GetAtt VpcStack.Outputs.PublicSubnet1Id
+        PublicSubnet2Id: !GetAtt VpcStack.Outputs.PublicSubnet2Id
+        TargetGroupArn: !GetAtt TargetGroupStack.Outputs.TargetGroupArn
+      Tags:
+        - Key: Environment
+          Value: !Ref Environment
+
+Outputs:
+  VpcId:
+    Value: !GetAtt VpcStack.Outputs.VpcId
+    Description: VPC ID
+  LoadBalancerDNS:
+    Value: !GetAtt LoadBalancerStack.Outputs.LoadBalancerDNS
+    Description: DNS name of the application load balancer

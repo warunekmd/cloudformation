@@ -1,0 +1,59 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Application Load Balancer
+
+Parameters:
+  Environment:
+    Type: String
+    AllowedValues:
+      - dev
+      - prod
+    Description: Target deployment environment
+  ALBSecurityGroupId:
+    Type: String
+    Description: Security group ID for the ALB
+  PublicSubnet1Id:
+    Type: String
+    Description: First public subnet for the ALB
+  PublicSubnet2Id:
+    Type: String
+    Description: Second public subnet for the ALB
+  TargetGroupArn:
+    Type: String
+    Description: ARN of the target group to route traffic to
+
+Resources:
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: !Sub "${Environment}-cfn-alb"
+      Type: application
+      Scheme: internet-facing
+      IpAddressType: ipv4
+      SecurityGroups:
+        - !Ref ALBSecurityGroupId
+      Subnets:
+        - !Ref PublicSubnet1Id
+        - !Ref PublicSubnet2Id
+      Tags:
+        - Key: Name
+          Value: !Sub "${Environment}-cfn-alb"
+        - Key: Environment
+          Value: !Ref Environment
+
+  HTTPListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref LoadBalancer
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroupArn
+
+Outputs:
+  LoadBalancerDNS:
+    Value: !GetAtt LoadBalancer.DNSName
+    Description: DNS name of the load balancer
+  LoadBalancerArn:
+    Value: !Ref LoadBalancer
+    Description: ARN of the load balancer
